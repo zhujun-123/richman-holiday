@@ -1,7 +1,7 @@
 {
   "name": "richman-holiday",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An original Richman-inspired board game built with React and TypeScript.",
   "type": "module",
   "license": "MIT",

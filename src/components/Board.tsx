@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { DISTRICTS } from '../game/data';
+import { DISTRICTS, MAX_LEVEL } from '../game/data';
 import type { GameState } from '../game/model';
 
 const UNIT_X = 43;
@@ -44,7 +44,7 @@ function Building({ x, y, color, level = 0, kind = 'property' }: { x: number; y:
       {kind === 'bank' ? <><path d={`M-18 ${-height - 1} 0 ${-height - 25} 20 ${-height - 1}Z`} fill="#eee4cd" /><circle cy={-height - 11} r="5" fill="#d6b26f" /></> : null}
     </>}
     {kind === 'shop' ? <><path d={`M-31 ${-height + 8} 0 ${-height + 24}v7l-31-16Z`} fill="#e7a491" /><path d={`M-25 ${-height + 11}v7m8-3v7m8-3v7`} stroke="#fff1d9" strokeWidth="5" /><path d="m8-25 13-7v16l-13 7Z" fill="#f7d390" /></> : null}
-    {level === 3 && kind === 'property' ? <><path d={`M0 ${-height - 6}v-30`} stroke="#8f997b" strokeWidth="2" /><path d={`M0 ${-height - 36} 18 ${-height - 29} 0 ${-height - 23}Z`} fill={color} /></> : null}
+    {level === MAX_LEVEL && kind === 'property' ? <><path d={`M0 ${-height - 6}v-30`} stroke="#8f997b" strokeWidth="2" /><path d={`M0 ${-height - 36} 18 ${-height - 29} 0 ${-height - 23}Z`} fill={color} /></> : null}
   </g>;
 }
 
@@ -94,7 +94,7 @@ const Town = memo(function Town() {
 export function Board({ state, selected, onSelect }: { state: GameState; selected: number | null; onSelect: (id: number) => void }) {
   const current = state.players[state.current];
   const ordered = [...state.tiles].sort((a, b) => a.x + a.y - b.x - b.y);
-  return <svg className="town-map" viewBox="70 25 990 620" role="group" aria-label="海风小镇棋盘，点击地块查看详情">
+  return <svg className="town-map" viewBox="70 -10 990 660" role="group" aria-label="海风小镇棋盘，点击地块查看详情">
     <defs>
       <pattern id="sea-waves" x="0" y="0" width="100" height="65" patternUnits="userSpaceOnUse"><path d="M10 31q8-5 16 0m38 27q8-5 16 0" fill="none" stroke="#a3c4bf" strokeWidth="1.2" opacity=".4" /></pattern>
       <filter id="island-shadow" x="-30%" y="-30%" width="160%" height="180%"><feGaussianBlur stdDeviation="14" /></filter>

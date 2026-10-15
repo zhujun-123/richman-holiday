@@ -1,11 +1,11 @@
-import { CARDS, CHARACTERS, createTiles, LAP_BONUS, MAX_LEVEL, START_CASH, START_SAVINGS } from './data';
+import { CARDS, CHARACTERS, createTiles, LAP_BONUS, MAX_CARDS, MAX_LEVEL, START_CASH, START_SAVINGS } from './data';
 import type { Action, CardId, GameState, Player, Tile } from './model';
 
 /** Pure state machine: all randomness is seeded and every money movement happens here. */
 export function createGame(character = 0, roundLimit = 20, seed = Date.now()): GameState {
   const order = [character, ...CHARACTERS.map((_, i) => i).filter(i => i !== character)];
   return {
-    version: 1, seed: seed >>> 0, current: 0, round: 1, roundLimit,
+    version: 2, seed: seed >>> 0, current: 0, round: 1, roundLimit,
     phase: 'ready', tiles: createTiles(),
     players: order.map((char, id) => ({
       id, character: char, name: CHARACTERS[char].name, color: CHARACTERS[char].color,
@@ -43,8 +43,12 @@ export function propertyValue(tile: Tile): number {
   return tile.price + tile.level * upgradeCost(tile);
 }
 
-export function rentFor(tile: Tile): number {
-  return Math.round(tile.price * [0.18, 0.36, 0.7, 1.1][tile.level]);
+export function rentFor(tile: Tile, tiles?: Tile[]): number {
+  const base = (t: Tile) => Math.round(t.price * [0.18, 0.36, 0.7, 1.1, 1.65, 2.4][t.level]);
+  if (!tiles || tile.owner === null) return base(tile);
+  // The supplied tile may be a projected upgrade used by the UI or the AI.
+  return tiles.filter(t => t.kind === 'property' && t.owner === tile.owner && t.district === tile.district)
+    .reduce((sum, t) => sum + base(t.id === tile.id ? tile : t), 0);
 }
 
 export function netWorth(state: GameState, player: Player): number {
@@ -108,11 +112,13 @@ function land(state: GameState) {
     } else if (tile.owner === player.id) {
       state.phase = tile.level < MAX_LEVEL ? 'upgrade' : 'end';
       log(state, `${player.name}回到自己的${tile.name}${tile.level < MAX_LEVEL ? '，可以继续盖房' : ''}。`, 'good');
+    } else if (state.players[tile.owner].skip > 0) {
+      log(state, `${state.players[tile.owner].name}正在住院，${player.name}免付${tile.name}的过路费。`);
     } else if (player.shield) {
       player.shield = false;
       log(state, `${player.name}使用免租金卡，免付${tile.name}的过路费。`, 'good');
     } else {
-      const rent = rentFor(tile);
+      const rent = rentFor(tile, state.tiles);
       const owner = state.players[tile.owner];
       pay(state, player, rent, owner);
       if (!state.winners.length) log(state, `${player.name}向${owner.name}支付 ${tile.name} 过路费 $${rent.toLocaleString()}。`, 'bad');
@@ -126,7 +132,7 @@ function land(state: GameState) {
       pay(state, player, 1200);
       if (!state.winners.length) log(state, `${player.name}的单车需要维修，支付 $1,200。`, 'bad');
     } else if (event === 2) {
-      if (player.cards.length < 8) {
+      if (player.cards.length < MAX_CARDS) {
         const card = (Object.keys(CARDS) as CardId[])[Math.floor(random(state) * 4)];
         player.cards.push(card);
         log(state, `${player.name}收到一张${CARDS[card].name}！`, 'good');
@@ -150,9 +156,8 @@ function land(state: GameState) {
       log(state, `${player.name}赢得社区烘焙比赛，奖金 +$1,500！`, 'good');
     }
   } else if (tile.kind === 'bank') {
-    const interest = Math.floor(player.savings * 0.05);
-    player.savings += interest;
-    log(state, `${player.name}来到银行，存款获利息 $${interest.toLocaleString()}。`, 'good');
+    state.phase = 'bank';
+    log(state, `${player.name}来到小镇银行，可以办理存取款。`);
   } else if (tile.kind === 'shop') {
     state.phase = 'shop';
     log(state, `${player.name}走进卡片商店，看看有什么好东西。`);
@@ -163,8 +168,7 @@ function land(state: GameState) {
     pay(state, player, tax);
     if (!state.winners.length) log(state, `${player.name}缴纳市政税 $${tax.toLocaleString()}。`, 'bad');
   } else if (tile.kind === 'park') {
-    player.cash += 800;
-    log(state, `${player.name}在公园摆了个小摊，赚到 $800。`, 'good');
+    log(state, `${player.name}在公园休息，平安度过这一回合。`);
   } else {
     log(state, `${player.name}回到了假日起点。`, 'good');
   }
@@ -178,8 +182,9 @@ export function gameReducer(previous: GameState, action: Action): GameState {
   if (action.type === 'BUY' && previous.phase !== 'purchase') return previous;
   if (action.type === 'UPGRADE' && previous.phase !== 'upgrade') return previous;
   if (action.type === 'END' && previous.phase !== 'end') return previous;
-  if (action.type === 'PASS' && !['purchase', 'upgrade', 'shop'].includes(previous.phase)) return previous;
-  if (['BANK', 'TRADE', 'SELL_PROPERTY'].includes(action.type)
+  if (action.type === 'PASS' && !['purchase', 'upgrade', 'shop', 'bank'].includes(previous.phase)) return previous;
+  if (action.type === 'BANK' && previous.phase !== 'bank') return previous;
+  if (['TRADE', 'SELL_PROPERTY'].includes(action.type)
     && (previous.current !== 0 || !['ready', 'end'].includes(previous.phase))) return previous;
 
   const state: GameState = structuredClone(previous);
@@ -209,6 +214,10 @@ export function gameReducer(previous: GameState, action: Action): GameState {
       }
       state.steps--;
       if (state.steps <= 0) land(state);
+      else if (state.tiles[player.position].kind === 'bank') {
+        state.phase = 'bank';
+        log(state, `${player.name}经过小镇银行，办理完存取款后还可前进 ${state.steps} 格。`);
+      }
       break;
     }
     case 'BUY': {
@@ -229,7 +238,7 @@ export function gameReducer(previous: GameState, action: Action): GameState {
       break;
     }
     case 'PASS':
-      state.phase = 'end';
+      state.phase = state.phase === 'bank' && state.steps > 0 ? 'moving' : 'end';
       break;
     case 'END': {
       let next = (state.current + 1) % state.players.length;
@@ -275,7 +284,7 @@ export function gameReducer(previous: GameState, action: Action): GameState {
       break;
     }
     case 'SHOP_BUY': {
-      if (state.phase !== 'shop' || !CARDS[action.card] || player.cards.length >= 8 || player.cash < CARDS[action.card].price) return previous;
+      if (state.phase !== 'shop' || !CARDS[action.card] || player.cards.length >= MAX_CARDS || player.cash < CARDS[action.card].price) return previous;
       player.cash -= CARDS[action.card].price;
       player.cards.push(action.card);
       log(state, `${player.name}买了一张${CARDS[action.card].name}。`, 'good');

@@ -17,7 +17,7 @@ export const DISTRICTS = [
 export const CARDS: Record<CardId, { name: string; description: string; price: number; color: string; icon: string }> = {
   control: { name: '遥控骰子', description: '指定下一次的骰子点数，想去哪里就去哪里。', price: 900, color: '#719da6', icon: 'dice' },
   shield: { name: '免租金卡', description: '抵消下一次过路费，使用后持续到触发。', price: 700, color: '#9b8bb2', icon: 'shield' },
-  renovate: { name: '建房卡', description: '免费升级自己的一处地产，最高升至三级。', price: 1200, color: '#d49a65', icon: 'house' },
+  renovate: { name: '建房卡', description: '免费升级自己的一处地产，最高升至五级。', price: 1200, color: '#d49a65', icon: 'house' },
   gift: { name: '小小财运', description: '领一份小镇见面礼，立即获得 $1,500。', price: 1800, color: '#8da77d', icon: 'gift' },
 };
 
@@ -48,5 +48,6 @@ export function createTiles(): Tile[] {
 export const START_CASH = 18000;
 export const START_SAVINGS = 6000;
 export const LAP_BONUS = 3000;
-export const MAX_LEVEL = 3;
+export const MAX_LEVEL = 5;
+export const MAX_CARDS = 15;
 export const SAVE_KEY = 'richman-holiday:v1';

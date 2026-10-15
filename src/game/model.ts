@@ -1,6 +1,6 @@
 export type TileKind = 'start' | 'property' | 'chance' | 'bank' | 'shop' | 'hospital' | 'park' | 'tax';
 export type CardId = 'control' | 'shield' | 'renovate' | 'gift';
-export type Phase = 'ready' | 'moving' | 'purchase' | 'upgrade' | 'shop' | 'end' | 'over';
+export type Phase = 'ready' | 'moving' | 'purchase' | 'upgrade' | 'shop' | 'bank' | 'end' | 'over';
 
 export interface Tile {
   id: number;
@@ -45,7 +45,7 @@ export interface GameLog {
 }
 
 export interface GameState {
-  version: 1;
+  version: 2;
   seed: number;
   current: number;
   round: number;

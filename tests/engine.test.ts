@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CARDS, createTiles, LAP_BONUS, MAX_LEVEL } from '../src/game/data';
+import { CARDS, createTiles, LAP_BONUS, MAX_CARDS, MAX_LEVEL } from '../src/game/data';
 import { createGame, gameReducer, netWorth, propertyValue, rentFor, upgradeCost } from '../src/game/engine';
 import type { GameState } from '../src/game/model';
 import { readSave } from '../src/game/storage';
@@ -173,7 +173,7 @@ describe('property and money', () => {
 
 describe('bank, stocks, and cards', () => {
   it('deposits and withdraws without changing total wealth', () => {
-    const state = createGame();
+    const state = arrive(createGame(), 5);
     const deposit = gameReducer(state, { type: 'BANK', amount: 1000 });
     expect(deposit.players[0].cash).toBe(17000);
     expect(deposit.players[0].savings).toBe(7000);
@@ -184,7 +184,7 @@ describe('bank, stocks, and cards', () => {
   });
 
   it('rejects overdrafts, fractional amounts, and nonfinite bank input', () => {
-    const state = createGame();
+    const state = arrive(createGame(), 5);
     for (const amount of [19000, -7000, 0, NaN, Infinity, 1.5]) {
       expect(gameReducer(state, { type: 'BANK', amount })).toBe(state);
     }
@@ -218,9 +218,10 @@ describe('bank, stocks, and cards', () => {
     expect(gameReducer(state, { type: 'BANK', amount: 1000 })).toBe(state);
   });
 
-  it('pays the bank landing bonus', () => {
+  it('opens the bank without inventing an arrival bonus', () => {
     const result = arrive(createGame(), 5);
-    expect(result.players[0].savings).toBe(6300);
+    expect(result.players[0].savings).toBe(6000);
+    expect(result.phase).toBe('bank');
   });
 
   it('sets controlled dice and consumes just one card', () => {
@@ -269,7 +270,7 @@ describe('bank, stocks, and cards', () => {
     const bought = gameReducer(shop, { type: 'SHOP_BUY', card: 'shield' });
     expect(bought.players[0].cards).toHaveLength(3);
     expect(bought.players[0].cash).toBe(18000 - CARDS.shield.price);
-    bought.players[0].cards = Array(8).fill('shield');
+    bought.players[0].cards = Array(MAX_CARDS).fill('shield');
     expect(gameReducer(bought, { type: 'SHOP_BUY', card: 'shield' })).toBe(bought);
   });
 
@@ -331,7 +332,7 @@ describe('results and persistence', () => {
 
   it('completes 80 seeded full games without stalls or invalid money', () => {
     for (let seed = 1; seed <= 80; seed++) {
-      let state = createGame(seed % 4, 20, seed * 983);
+      let state = createGame(seed % 4, [20, 30, 50][seed % 3], seed * 983);
       let steps = 0;
       while (state.phase !== 'over' && steps < 5000) {
         const action = state.phase === 'moving' ? { type: 'STEP' as const } : computerAction(state);
@@ -347,5 +348,5 @@ describe('results and persistence', () => {
       expect(state.winners.length).toBeGreaterThan(0);
       expect(steps).toBeLessThan(5000);
     }
-  }, 30000);
+  }, 45000);
 });

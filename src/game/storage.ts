@@ -1,4 +1,4 @@
-import { createTiles, SAVE_KEY } from './data';
+import { createTiles, MAX_CARDS, MAX_LEVEL, SAVE_KEY } from './data';
 import type { GameState } from './model';
 
 /** Reject corrupt / incompatible local saves rather than crashing the renderer. */
@@ -6,8 +6,8 @@ export function readSave(raw: string | null): GameState | null {
   if (!raw) return null;
   try {
     const state = JSON.parse(raw) as GameState;
-    if (state.version !== 1 || state.players?.length !== 4 || state.tiles?.length !== 36 || state.stocks?.length !== 3) return null;
-    if (!['ready', 'moving', 'purchase', 'upgrade', 'shop', 'end', 'over'].includes(state.phase)) return null;
+    if (![1, 2].includes(state.version) || state.players?.length !== 4 || state.tiles?.length !== 36 || state.stocks?.length !== 3) return null;
+    if (!['ready', 'moving', 'purchase', 'upgrade', 'shop', 'bank', 'end', 'over'].includes(state.phase)) return null;
     if (!Number.isInteger(state.current) || state.current < 0 || state.current > 3 || !Number.isInteger(state.round) || state.round < 1) return null;
     if (![20, 30, 50].includes(state.roundLimit) || !Number.isInteger(state.seed) || state.seed < 0 || state.seed > 4294967295) return null;
     if (!Array.isArray(state.logs) || state.logs.length > 80 || !state.logs.every(l => typeof l.text === 'string'
@@ -20,12 +20,12 @@ export function readSave(raw: string | null): GameState | null {
       && Number.isInteger(p.character) && p.character >= 0 && p.character < 4
       && typeof p.name === 'string' && typeof p.color === 'string'
       && Number.isSafeInteger(p.cash) && p.cash >= 0 && Number.isSafeInteger(p.savings) && p.savings >= 0
-      && Array.isArray(p.cards) && p.cards.length <= 8 && p.cards.every(c => ['control', 'shield', 'renovate', 'gift'].includes(c))
+      && Array.isArray(p.cards) && p.cards.length <= MAX_CARDS && p.cards.every(c => ['control', 'shield', 'renovate', 'gift'].includes(c))
       && Array.isArray(p.stocks) && p.stocks.length === 3 && p.stocks.every(n => Number.isSafeInteger(n) && n >= 0)
       && typeof p.bankrupt === 'boolean' && typeof p.shield === 'boolean' && Number.isInteger(p.skip) && p.skip >= 0)) return null;
     const canonical = createTiles();
     if (!state.tiles.every((t, i) => t.id === i && (t.owner === null || (Number.isInteger(t.owner) && t.owner >= 0 && t.owner < 4))
-      && Number.isInteger(t.level) && t.level >= 0 && t.level <= 3
+      && Number.isInteger(t.level) && t.level >= 0 && t.level <= MAX_LEVEL
       && t.price === canonical[i].price && t.x === canonical[i].x && t.y === canonical[i].y
       && t.name === canonical[i].name && t.kind === canonical[i].kind && t.district === canonical[i].district)) return null;
     if (!state.stocks.every(s => Number.isFinite(s.price) && s.price >= 20 && Array.isArray(s.history)
@@ -34,6 +34,9 @@ export function readSave(raw: string | null): GameState | null {
     if (!Number.isInteger(state.dice) || state.dice < 1 || state.dice > 6
       || !Number.isInteger(state.steps) || state.steps < 0 || state.steps > 6
       || (state.phase === 'moving' && state.steps === 0)) return null;
+    if (state.phase === 'bank' && state.tiles[state.players[state.current].position].kind !== 'bank') return null;
+    // Version 1 has the same shape. Keep its progress and balances when upgrading rules.
+    state.version = 2;
     return state;
   } catch { return null; }
 }
